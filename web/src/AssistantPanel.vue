@@ -1,0 +1,29 @@
+<script setup lang="ts">
+import {computed,onMounted,nextTick,ref,watch} from 'vue';
+import {ElMessage,ElMessageBox} from 'element-plus';
+import type {Snapshot,Thresholds} from '../../contracts/monitoring';
+import {assistant as a,activeSession,modelOptions,loadAssistant,newSession,sendQuestion,stopQuestion,assistantAction} from './assistant';
+const props=defineProps<{snapshot?:Snapshot;thresholds:Thresholds;compact?:boolean}>();
+const emit=defineEmits<{continue:[]}>();const messages=ref<HTMLElement>();
+const filtered=computed(()=>a.sessions.filter(s=>s.title.toLowerCase().includes(a.query.toLowerCase())));
+const time=(s:string)=>new Date(s).toLocaleString('zh-CN',{hour12:false,timeZone:'Asia/Shanghai'});
+async function create(){try{await newSession();}catch(e){ElMessage.error((e as Error).message);}}
+async function rename(){if(!activeSession.value)return;try{const {value}=await ElMessageBox.prompt('会话名称','重命名',{inputValue:activeSession.value.title,inputValidator:v=>!!v.trim()&&v.length<=80,confirmButtonText:'保存',cancelButtonText:'取消'});await assistantAction('renameSession',{id:a.activeId,title:value});await loadAssistant();}catch(e){if(e instanceof Error)ElMessage.error(e.message);}}
+async function remove(){if(!activeSession.value)return;try{await ElMessageBox.confirm('删除后无法恢复该会话。','删除会话',{confirmButtonText:'删除',cancelButtonText:'取消',type:'warning'});await assistantAction('deleteSession',{id:a.activeId});await loadAssistant();}catch(e){if(e instanceof Error)ElMessage.error(e.message);}}
+function send(){if(props.snapshot)void sendQuestion(props.snapshot,props.thresholds);}
+function key(e:KeyboardEvent){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send();}}
+watch(()=>activeSession.value?.messages.at(-1)?.text,async()=>{const nearBottom=!messages.value||messages.value.scrollHeight-messages.value.scrollTop-messages.value.clientHeight<140;await nextTick();if(nearBottom&&messages.value)messages.value.scrollTop=messages.value.scrollHeight;});
+onMounted(()=>{void loadAssistant();});
+</script>
+<template>
+<div class="assistant-layout" :class="{'quick-assistant':compact}">
+ <aside v-if="!compact" class="session-list"><el-button type="primary" plain @click="create" :disabled="a.busy||a.loading">新建会话</el-button><el-input v-model="a.query" placeholder="搜索会话" aria-label="搜索会话" clearable/><div class="session-items"><button v-for="s in filtered" :key="s.id" :class="{active:s.id===a.activeId}" @click="a.activeId=s.id" :disabled="a.busy"><span>{{s.title}}</span><small>{{time(s.updatedAt)}}</small></button><p v-if="!filtered.length" class="muted">{{a.loading?'正在加载…':'暂无会话'}}</p></div></aside>
+ <div class="assistant-main">
+  <div class="assistant-toolbar"><el-select v-model="a.selection" aria-label="选择模型" filterable :disabled="a.busy||a.loading"><el-option v-for="m in modelOptions" :key="m.value" :label="m.label" :value="m.value"/></el-select><el-button @click="a.providerOpen=true">模型与 API</el-button><el-dropdown v-if="!compact" :disabled="a.busy||!activeSession"><el-button :disabled="a.busy||!activeSession">会话操作</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item @click="rename">重命名</el-dropdown-item><el-dropdown-item @click="remove">删除会话</el-dropdown-item><el-dropdown-item @click="loadAssistant">刷新列表</el-dropdown-item></el-dropdown-menu></template></el-dropdown><el-button v-if="compact" link type="primary" @click="emit('continue')">在 AI 助手中继续</el-button></div>
+  <div class="assistant-context"><span>{{snapshot?.server??'等待采样'}}</span><span>{{snapshot?time(snapshot.capturedAt)+' CST':''}}</span><el-tag size="small" effect="plain" type="info">模拟监控数据</el-tag><el-tag v-if="a.selection==='mock'" size="small" effect="plain" type="info">规则模拟回答</el-tag><span v-else>API 模型 · 未接入 pi-agent 工具</span></div>
+  <el-alert v-if="a.error" :title="a.error" type="error" :closable="false"/><el-button v-if="!a.loaded&&!a.loading" text @click="loadAssistant">重新加载</el-button>
+  <div class="assistant-messages" ref="messages" aria-live="polite"><div v-if="!activeSession?.messages.length" class="assistant-empty"><h3>查询服务器资源与任务</h3><p>选择模型，输入问题后发送。</p><el-button @click="a.input='哪个用户占用显存最多？'">用户显存占用</el-button><el-button @click="a.input='分析当前资源状态，按结论、证据、建议、告警输出。'">资源状态分析</el-button></div><article v-for="m in activeSession?.messages" :key="m.id" class="assistant-message" :class="m.role"><div class="message-meta"><strong>{{m.role==='user'?'你':'助手'}}</strong><span v-if="m.role==='assistant'">{{m.model}}</span><span>{{time(m.at)}}</span></div><div class="message-text">{{m.text|| (a.busy?'等待模型响应…':'未返回文本')}}</div><el-collapse v-if="m.evidence?.length"><el-collapse-item title="采样证据" :name="m.id"><ul><li v-for="e in m.evidence" :key="e">{{e}}</li></ul></el-collapse-item></el-collapse><div class="message-sample">采样：{{time(m.capturedAt)}}<span v-if="m.snapshotId!==snapshot?.id"> · 历史采样</span><span v-if="m.status==='stopped'"> · 已停止</span><span v-if="m.status==='error'"> · 生成失败</span></div></article></div>
+  <div class="assistant-composer"><div class="composer-context">本次附带：当前服务器采样、GPU 与用户进程、存储、已保存阈值</div><el-input v-model="a.input" type="textarea" :rows="3" maxlength="1000" placeholder="输入监控问题" aria-label="监控问题" @keydown="key" :disabled="a.busy"/><div class="composer-actions"><span>Enter 发送 · Shift+Enter 换行</span><el-button v-if="a.busy" @click="stopQuestion">停止生成</el-button><el-button v-else type="primary" @click="send" :disabled="!a.input.trim()||!snapshot||!a.loaded">发送</el-button></div></div>
+ </div>
+</div>
+</template>

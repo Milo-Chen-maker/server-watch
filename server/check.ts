@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {createServer} from './app';
+import {defaults,evaluate,snapshotSchema,createMockSnapshot} from '../contracts/monitoring';
+import {userStatistics} from '../contracts/questions';
+import {observationState,resourceState} from '../contracts/display-state';
+const app=createServer();
+try{
+ const sampleResponse=await app.inject({method:'GET',url:'/api/monitor?scenario=pressure&tick=0'});assert.equal(sampleResponse.statusCode,200);
+ const snapshot=snapshotSchema.parse(sampleResponse.json());
+ const users=userStatistics(snapshot);assert.equal(users.length,4);assert.equal(users[0].user,'alice');assert.equal(users[0].processCount,3);
+ assert.equal(users.reduce((s,u)=>s+u.memoryUsed,0),snapshot.gpus.reduce((s,g)=>s+g.memoryUsed,0));
+ for(const g of snapshot.gpus)assert.equal(snapshot.processes!.filter(p=>p.gpuId===g.id).reduce((s,p)=>s+p.memoryUsed,0),g.memoryUsed);
+ const question=await app.inject({method:'POST',url:'/api/chat',payload:{question:'GPU5 上是谁在运行什么任务？',snapshot,thresholds:defaults,history:[]}});assert.equal(question.statusCode,200);assert.match(question.json().answer,/svc-llm/);assert.match(question.json().evidence.join(' '),/vllm/);
+ const invalid=await app.inject({method:'POST',url:'/api/chat',payload:{question:' ',snapshot,thresholds:defaults}});assert.equal(invalid.statusCode,400);
+ assert.equal((await app.inject({method:'GET',url:'/api/monitor?scenario=invalid'})).statusCode,400);
+ assert.equal((await app.inject({method:'POST',url:'/api/analyze',payload:{snapshot,thresholds:{...defaults,memory:0}}})).statusCode,400);
+ const analysis=await app.inject({method:'POST',url:'/api/analyze',payload:{snapshot,thresholds:defaults}});assert.equal(analysis.statusCode,200);assert.equal(analysis.json().alerts.length,evaluate(snapshot,defaults).length);
+ assert.equal(evaluate(snapshot,{...defaults,enabled:false}).length,0);
+ const captured=Date.parse(snapshot.capturedAt);
+ assert.equal(observationState(snapshot,captured+119999,false),'current');
+ assert.equal(observationState(snapshot,captured+120000,false),'stale');
+ assert.equal(observationState(snapshot,captured,true),'failed');
+ const pausedRisks=evaluate(snapshot,{...defaults,enabled:false},true).filter(a=>a.resource==='GPU 5');
+ assert.ok(pausedRisks.length>0);assert.match(resourceState(pausedRisks,'current').label,/达阈值/);
+ assert.equal(resourceState(pausedRisks,'stale').label,'数据过期');
+ assert.equal(resourceState([],'failed').label,'采样失败');
+ const normal=createMockSnapshot('normal');assert.equal(evaluate(normal,defaults).length,0);assert.ok(evaluate(createMockSnapshot('critical'),defaults).length>0);
+ const mockUsers=await app.inject({method:'POST',url:'/api/users',payload:snapshot});assert.deepEqual(mockUsers.json(),users);
+ const ui=await app.inject({method:'GET',url:'/console/index.html'});assert.equal(ui.statusCode,200);assert.match(ui.body,/服务器监控/);
+ const root=await app.inject({method:'GET',url:'/'});assert.equal(root.statusCode,302);
+ console.log('PASS: API contracts, process attribution, PID deduplication, thresholds, questions, input rejection, Vue asset serving, paused alerts preserve risks, stale and failed sampling states');
+}finally{await app.close();}
