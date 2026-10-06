@@ -1,6 +1,10 @@
 # Server Watch
 
-Vue 3 + TypeScript + Element Plus 管理面板；Fastify 独立服务；共用监控协议与规则。监控仍使用可替换的模拟数据。新增独立 AI 助手与快速提问，共用服务端会话、模型与 API 配置；配置后可调用 OpenAI 兼容接口。尚未接入真实采集、pi-agent 工具、后台调度或邮件发送。
+2026-10-07 Pi 更新：独立后端已嵌入 Pi Agent SDK，接入 GPU 查询工具、会话工具记录和取消链路，详见 [Pi Agent 接入](docs/PI-AGENT.md)。Sites 保留原直接文本接口。
+
+2026-10-07 监控更新：26-server 独立版已接入真实只读采集、15 秒自动刷新和服务端阈值持久化，详见 [真实监控接入](docs/REAL-MONITORING.md)。下面的模拟原型描述仍适用于默认 mock 模式及 Sites 版本；独立服务设置 `SERVER_WATCH_MONITOR_MODE=script` 后使用真实采样。
+
+Vue 3 + TypeScript + Element Plus 管理面板；Fastify 独立服务；共用监控协议与规则。监控仍使用可替换的模拟数据。新增独立 AI 助手与快速提问，共用服务端会话、模型与 API 配置；配置后可调用 OpenAI 兼容接口。默认模式使用模拟采样；独立服务的真实采集和 Pi 工具能力见上方更新，邮件发送尚未实现。
 
 ## 结构
 
@@ -17,7 +21,7 @@ Vue 3 + TypeScript + Element Plus 管理面板；Fastify 独立服务；共用�
 
 ## 本机开发
 
-Node 22+，pnpm。仓库已有 lockfile。
+Node 22.19.0+，pnpm。仓库已有 lockfile。
 
 ```sh
 pnpm install --frozen-lockfile

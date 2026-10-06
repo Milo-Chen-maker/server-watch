@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "install:ci": "bash scripts/install-pnpm.sh",
@@ -17,7 +17,10 @@
     "server:dev": "node --watch --import tsx server/index.ts",
     "server:start": "node --import tsx server/index.ts",
     "server:check": "tsc --noEmit -p server/tsconfig.json",
-    "check:core": "node --import tsx server/check.ts"
+    "check:core": "node --import tsx server/check.ts",
+    "check:monitor": "node --import tsx server/check-monitor.ts",
+    "check:collector": "python3 server/check_collector.py",
+    "check:pi": "node --import tsx server/check-pi.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -47,7 +50,10 @@
     "tailwind-merge": "3.6.0",
     "vaul": "^1.1.2",
     "vue": "^3.5.43",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@earendil-works/pi-agent-core": "0.87.1",
+    "@earendil-works/pi-ai": "0.87.1",
+    "typebox": "1.3.27"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

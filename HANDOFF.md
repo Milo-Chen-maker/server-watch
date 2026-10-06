@@ -1,5 +1,37 @@
 # Server Watch 开发交接（HANDOFF）
 
+## 2026-10-07 停机与分支交接（当前状态）
+
+按用户要求，26-server 的 `server-watch.service` 已停止，确认 `ActiveState=inactive`、`SubState=dead`。当前面板与 `/api/*` 不提供服务；数据、模型配置和会话保留。服务仍为 enabled，重启服务器或用户会话启动时可能再次启动；本次只停止运行，没有取消自启动。
+
+GPU4 的独立 vLLM 服务继续运行，未随监控系统停止，地址 `http://127.0.0.1:18145/v1`，模型 `qwen3.6-27b`。其原启动配置已备份，当前新增 `--enable-auto-tool-choice --tool-call-parser qwen3_xml`，模型绑定 GPU4。
+
+本次代码在 `codex/pi-agent-integration` 分支提交，包含此前尚未提交的真实采集、阈值持久化、GPU4 模型配置、Pi SDK 接入、前端工具记录、验证脚本及构建产物。本地 Pi 官方源码位于被忽略的 `work/pi-source`，标签 `v0.87.1`；运行使用同版本 npm SDK 包，不提交克隆仓库、运行数据、私密环境文件或密钥。
+
+部署目录：`/data/czy/server-watch/app`；持久数据：`/data/czy/server-watch/data`；私密配置：`/data/czy/server-watch/config/server-watch.env`。服务器部署目录保留现有文件；其 Git checkout 不会因本地分支提交自动切换。
+
+恢复监控系统：
+
+```sh
+ssh 26-server -i C:/Users/10931/.ssh/id_ed25519_26 -o BatchMode=yes 'systemctl --user start server-watch.service'
+```
+
+启动后先检查 `/api/health` 为 `status=ok`、`mode=script`，`/api/assistant` 为 `engine=pi`，再访问面板。后端回滚备份为 `/data/czy/server-watch/backups/pi-20261007-005519`；GPU4 原配置备份为 `/data/czy/server-watch/backups/gpu4-pi-20261007-004826/launch.json`（含环境，权限 0600，不应输出或入库）。
+
+停机前已通过 TypeScript/Vue 检查、前端构建、核心 API 检查、助手检查、采集器检查及 Pi SDK 工具往返/历史恢复/取消测试。真实 GPU4 工具查询和部署 API 验证通过，最近一次约 3.4 秒；前端验证会话“Pi Agent 接入验证 · GPU4”保留供恢复后查看。容量单位来自工具，工具另外提供北京时间字符串，避免模型自行换算时间。
+
+下一步：在现有 Pi 工具注册方式下扩展进程、用户、存储查询；再接入未知用途进程的 AI 推测，明确区分采样事实与推测。当前仅 `get_gpu`，登录、多人隔离、邮件发送仍未实现。恢复服务需要用户后续指示。
+
+## 2026-10-07 Pi 接入
+
+独立后端已嵌入 Pi Agent SDK `0.87.1`，使用 SDK 原生 OpenAI 兼容适配器接入 GPU4 vLLM。首次接入 `get_gpu` 只读工具，支持真实工具记录、流式回答、历史工具上下文恢复和 HTTP 断开后取消。详细配置、源码位置和测试见 [PI-AGENT.md](docs/PI-AGENT.md)。Sites 仍使用直接文本接口。GPU4 原服务未配置工具解析器；用户授权后保留原参数新增自动工具选择与 `qwen3_xml`。
+
+## 2026-10-07 早期增量交接
+
+GPU4 上已有 Qwen3.6-27B 已通过现有 `/api/assistant` 接入，默认模型为 `qwen3.6-27b`；新增可选“关闭模型思考模式”配置，详见 [GPU4-MODEL.md](docs/GPU4-MODEL.md)。模型列表、连接测试与一次真实采样流式回答已通过；当时 pi-agent 和真实工具调用尚未实现，已由上面的增量实现。
+
+26-server 已部署真实只读采集、15 秒自动刷新与服务端阈值保存；当前停机及分支状态以上方最新交接为准。下文 1–10 节为 `c8f1cf6` 部署前基线记录，其中模拟监控及浏览器阈值限制已由独立服务的新实现扩展。监控实现、运行配置、测试和边界参见 [REAL-MONITORING.md](docs/REAL-MONITORING.md)。Sites 未更新，仍保留模拟模式；登录、多人隔离和邮件未实现；Pi 接入以本页最新增量为准。
+
 更新日期：2026-10-06（北京时间）  
 代码基线：GitHub `main`，提交 `c94e128dc61d4e69361c51c13ca785ab217e91a7`。  
 本文描述当前已实现行为；“后续开发”中的事项尚未完成。

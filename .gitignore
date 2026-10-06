@@ -47,3 +47,5 @@ next-env.d.ts
 
 /.dev.vars
 /server-data/
+__pycache__/
+*.py[cod]
