@@ -20,7 +20,8 @@
     "check:core": "node --import tsx server/check.ts",
     "check:monitor": "node --import tsx server/check-monitor.ts",
     "check:collector": "python3 server/check_collector.py",
-    "check:pi": "node --import tsx server/check-pi.ts"
+    "check:pi": "node --import tsx server/check-pi.ts",
+    "check:tools": "node --import tsx server/check-monitor-tools.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -1,6 +1,6 @@
 # Server Watch
 
-2026-10-07 Pi 更新：独立后端已嵌入 Pi Agent SDK，接入 GPU 查询工具、会话工具记录和取消链路，详见 [Pi Agent 接入](docs/PI-AGENT.md)。Sites 保留原直接文本接口。
+2026-10-07 Pi 更新：独立后端已嵌入 Pi Agent SDK，接入 GPU、进程、用户、存储、告警五个只读工具、会话工具记录和取消链路，详见 [Pi Agent 接入](docs/PI-AGENT.md)。Sites 保留原直接文本接口。
 
 2026-10-07 监控更新：26-server 独立版已接入真实只读采集、15 秒自动刷新和服务端阈值持久化，详见 [真实监控接入](docs/REAL-MONITORING.md)。下面的模拟原型描述仍适用于默认 mock 模式及 Sites 版本；独立服务设置 `SERVER_WATCH_MONITOR_MODE=script` 后使用真实采样。
 

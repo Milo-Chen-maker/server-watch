@@ -16,12 +16,13 @@ const requests:Record<string,any>[]=[];let mode='gpu',callId=0;
 const upstream=createServer(async(req,res)=>{
  let raw='';for await(const part of req)raw+=part;const body=JSON.parse(raw);requests.push(body);
  assert.equal(req.headers.authorization,'Bearer test-secret');assert.equal(body.chat_template_kwargs.enable_thinking,false);
+ assert.deepEqual(body.tools.map((t:any)=>t.function.name).sort(),['get_alerts','get_gpu','get_processes','get_storage','get_users']);
  res.writeHead(200,{'Content-Type':'text/event-stream'});
  if(mode==='hang'){res.write(': waiting\n\n');return;}
  const tools=body.messages.filter((m:any)=>m.role==='tool');
  const last=body.messages.at(-1);
  const chunk=(delta:unknown,finish_reason:string|null=null)=>res.write('data: '+JSON.stringify({id:'test',object:'chat.completion.chunk',created:1,model:'test-model',choices:[{index:0,delta,finish_reason}]})+'\n\n');
- if(last.role==='user'||mode==='loop')chunk({role:'assistant',tool_calls:[{index:0,id:'gpu-'+(++callId),type:'function',function:{name:mode==='unknown'?'delete_files':'get_gpu',arguments:JSON.stringify({gpuId:mode==='invalid'?63:4})}}]},'tool_calls');
+ if(last.role==='user'||mode==='loop')chunk({role:'assistant',tool_calls:[{index:0,id:'gpu-'+(++callId),type:'function',function:{name:mode==='unknown'?'delete_files':({processes:'get_processes',users:'get_users',storage:'get_storage',alerts:'get_alerts',invalid_processes:'get_processes',extra_args:'get_storage'} as Record<string,string>)[mode]??'get_gpu',arguments:JSON.stringify(mode==='invalid_processes'?{gpuId:-1}:mode==='extra_args'?{mount:'/data',path:'/private'}:mode==='processes'?{user:'alice',limit:1}:mode==='users'?{limit:1}:mode==='storage'?{mount:'/data'}:mode==='alerts'?{}:{gpuId:mode==='invalid'?63:4})}}]},'tool_calls');
  else{assert.ok(tools.length);chunk({role:'assistant',content:mode==='gpu'?'GPU 4 已核对':'工具报告查询失败'},'stop');}
  res.end('data: [DONE]\n\n');
 });
@@ -37,7 +38,8 @@ try{
  let stored=(await service.state()).sessions[0];assert.equal(stored.messages.at(-1)?.status,'complete');assert.equal(stored.messages.at(-1)?.tools?.[0].status,'complete');assert.ok(stored.messages.at(-1)?.piMessages?.length);
  const tool=JSON.parse(requests[1].messages.find((m:any)=>m.role==='tool').content);assert.equal(tool.snapshotId,snapshot.id);assert.equal(tool.thresholds.gpu,defaults.gpu);assert.equal(tool.gpu.id,4);
  await (await chat()).text();assert.equal(requests[2].messages.filter((m:any)=>m.role==='tool').length,1,'prior tool results survive next turn');
- for(const test of ['invalid','unknown']){mode=test;await (await chat()).text();stored=(await service.state()).sessions[0];assert.equal(stored.messages.at(-1)?.tools?.[0].status,'error');}
+ for(const test of ['invalid','unknown','invalid_processes','extra_args']){mode=test;await (await chat()).text();stored=(await service.state()).sessions[0];assert.equal(stored.messages.at(-1)?.tools?.[0].status,'error');}
+ for(const [test,name] of [['processes','get_processes'],['users','get_users'],['storage','get_storage'],['alerts','get_alerts']]){mode=test;const response=await (await chat()).text();assert.ok(response.includes(name));stored=(await service.state()).sessions[0];assert.equal(stored.messages.at(-1)?.status,'complete');assert.equal(stored.messages.at(-1)?.tools?.[0].status,'complete');const result=JSON.parse(stored.messages.at(-1)!.tools![0].result!);assert.equal(result.snapshotId,snapshot.id);}
  mode='loop';const before=requests.length;await (await chat()).text();assert.ok(requests.length-before<=9);assert.equal((await service.state()).sessions[0].messages.at(-1)?.status,'error');
  mode='hang';const cancel=new AbortController();const response=await chat(cancel.signal);setTimeout(()=>cancel.abort(),80);await response.text();stored=(await service.state()).sessions[0];assert.equal(stored.messages.at(-1)?.status,'stopped');assert.equal(stored.busyUntil,undefined);
  const reloaded=new AssistantService(repo,key,true,fetch,runtime);assert.ok((await reloaded.state()).sessions[0].messages[1].tools?.length);

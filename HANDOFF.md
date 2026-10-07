@@ -1,5 +1,13 @@
 # Server Watch 开发交接（HANDOFF）
 
+## 2026-10-07 只读监控工具扩展（当前状态）
+
+在 `codex/pi-agent-integration` 分支增加 `get_processes`、`get_users`、`get_storage`、`get_alerts`，与已有 `get_gpu` 共用 Pi SDK、每轮固定的服务端采样、工具事件及会话保存。工具定义集中在 `server/monitor-tools.ts`；用户汇总和告警直接复用已有规则。进程与用户支持分页，跨卡 PID 去重；存储区分普通用户可用空间与总空闲空间；暂停告警仍显示风险，禁止模型修改阈值或宣称通知已发送。
+
+已通过 TypeScript/Vue 检查、前端构建、核心 API 检查、工具数据检查和 Pi SDK 往返/参数拒绝/历史恢复/取消检查。使用 GPU4 的 `qwen3.6-27b` 实测四个新工具自然语言调用成功，包括暂停告警仍有存储风险。测试使用独立采集与 SDK，没有修改正式阈值或会话。新增检查命令 `pnpm check:tools`，详情见 [PI-AGENT.md](docs/PI-AGENT.md)。
+
+正式系统保持停机；本轮已更新部署文件，没有启动 `server-watch.service`。备份位于 `/data/czy/server-watch/backups/monitor-tools-20261007-120604`（含变更前文件和清单）。GPU4 模型继续运行。下一步是未知用途进程的 AI 推测、证据、缓存与重新分析；尚未实现。本轮完成的范围为四个只读监控工具。
+
 ## 2026-10-07 停机与分支交接（当前状态）
 
 按用户要求，26-server 的 `server-watch.service` 已停止，确认 `ActiveState=inactive`、`SubState=dead`。当前面板与 `/api/*` 不提供服务；数据、模型配置和会话保留。服务仍为 enabled，重启服务器或用户会话启动时可能再次启动；本次只停止运行，没有取消自启动。
@@ -20,7 +28,7 @@ ssh 26-server -i C:/Users/10931/.ssh/id_ed25519_26 -o BatchMode=yes 'systemctl -
 
 停机前已通过 TypeScript/Vue 检查、前端构建、核心 API 检查、助手检查、采集器检查及 Pi SDK 工具往返/历史恢复/取消测试。真实 GPU4 工具查询和部署 API 验证通过，最近一次约 3.4 秒；前端验证会话“Pi Agent 接入验证 · GPU4”保留供恢复后查看。容量单位来自工具，工具另外提供北京时间字符串，避免模型自行换算时间。
 
-下一步：在现有 Pi 工具注册方式下扩展进程、用户、存储查询；再接入未知用途进程的 AI 推测，明确区分采样事实与推测。当前仅 `get_gpu`，登录、多人隔离、邮件发送仍未实现。恢复服务需要用户后续指示。
+当时的下一步为扩展进程、用户、存储查询，现已完成（见本页最新增量）；未知用途进程的 AI 推测、登录、多人隔离、邮件发送仍未实现。恢复服务需要用户后续指示。
 
 ## 2026-10-07 Pi 接入
 
