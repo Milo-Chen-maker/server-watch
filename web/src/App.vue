@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import {computed,onMounted,onUnmounted,ref,nextTick} from 'vue';
+import {defineAsyncComponent,computed,onMounted,onUnmounted,ref,nextTick} from 'vue';
 import ModelSettings from './ModelSettings.vue';
-import AssistantPanel from './AssistantPanel.vue';
+const AssistantPanel=defineAsyncComponent(()=>import('./AssistantPanel.vue'));
 import StoragePanel from './StoragePanel.vue';
 import ProcessInference from './ProcessInference.vue';
 import {prepareQuestion} from './assistant';

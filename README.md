@@ -92,3 +92,5 @@ Sites 托管版只允许 HTTPS 域名，拒绝直接 IP、localhost 和 `.local`
 本地验证：`node --import tsx server/check-assistant.ts`（内存存储与可控测试接口，不使用真实 API Key）。生产会话/密钥不包含在源代码或部署包中。Sites D1 迁移在 `drizzle/`。
 
 目录视图、后台空间统计和未知进程的手动 AI 推测已接入独立后端，详见 [存储与推测接口](docs/STORAGE-INFERENCE.md)。
+
+AI 助手聊天布局、流式 Markdown 与工具详情说明见 [CHAT-UI.md](docs/CHAT-UI.md)。

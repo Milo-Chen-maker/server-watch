@@ -1,5 +1,13 @@
 # Server Watch 开发交接（HANDOFF）
 
+## 2026-10-07 AI 助手聊天布局与 Markdown（最新功能）
+
+已接入 markstream-vue 2.0.14 与 vue-element-plus-x 2.0.3，实现分组/搜索/折叠会话侧栏、窄屏会话抽屉、消息气泡、流式 Markdown 表格/代码/引用、复制、工具状态卡片和查询详情/回答依据抽屉。底部输入区使用 Element Plus 自动增高文本框，支持 Enter、Shift+Enter 和停止生成；历史阅读保留滚动位置并可回到最新。HTML 转义，危险链接不执行，图片不自动加载；图表/公式/语法高亮尚未启用。
+
+前端和后端类型检查、构建、Pi 与核心 API 检查通过。3031 独立数据预览完成 GPU4 实际工具调用、流式表格、取消、输入清空、会话操作、移动布局验证。正式服务仍为 active/running，访问地址保持 `http://172.18.132.26:3030/console/index.html`。本次前端静态部署无需重启后端或模型；保留正式持久数据。构建目录为 `/data/czy/server-watch/staging-chat-ui`，新增依赖安装在此，正式 node_modules 保留。部署时先复制散列资产再原子切换入口，服务器暂保留旧资产。详情与限制见 [CHAT-UI.md](docs/CHAT-UI.md)。
+
+回滚备份：`/data/czy/server-watch/backups/chat-ui-20261007-133359/previous.tar`，部署清单为 `/data/czy/server-watch/chat-ui-deployment.json`；备份只包含源码/静态文件/依赖清单和文档，无凭据。临时预览服务验证完成后停止。下一步可考虑 Pi 目录查询工具，或登录与多人会话隔离。
+
 ## 2026-10-07 正式服务恢复与 IP 访问（最新运行状态）
 
 用户授权恢复正式系统并通过服务器 IP 访问。已将私密环境配置设为 `HOST=0.0.0.0`、`PORT=3030`，启动 `server-watch.service`，确认 `active/running` 及 `0.0.0.0:3030` 监听。正式地址：`http://172.18.132.26:3030/console/index.html`（也可从根路径自动跳转）。服务器端和本地客户端通过服务器 IP 访问页面与健康接口均返回 HTTP 200；健康状态为 `ok/script`，助手为 `pi`，三个存储根目录可访问。
