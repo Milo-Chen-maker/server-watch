@@ -10,7 +10,6 @@ import re
 import socket
 import subprocess
 import sys
-import time
 import uuid
 
 
@@ -42,7 +41,8 @@ def process_info(pid):
     try:
         stat = (root / 'stat').read_text()
         ticks = float(stat[stat.rfind(')') + 2:].split()[19])
-        boot = time.time() - float(Path('/proc/uptime').read_text().split()[0])
+        # Kernel boot epoch is stable across samples; now-minus-uptime drifts.
+        boot = int(next(line.split()[1] for line in Path('/proc/stat').read_text().splitlines() if line.startswith('btime ')))
         started = datetime.fromtimestamp(boot + ticks / os.sysconf('SC_CLK_TCK'), timezone.utc).isoformat().replace('+00:00', 'Z')
         try:
             user = pwd.getpwuid(root.stat().st_uid).pw_name
@@ -54,7 +54,7 @@ def process_info(pid):
         except OSError:
             command = '不可读取（进程退出或权限不足）'
         return {'user': user[:80], 'command': command, 'startedAt': started}
-    except (OSError, ValueError, IndexError):
+    except (OSError, ValueError, IndexError, StopIteration):
         return {'user': '未知（退出或权限不足）', 'command': '不可读取（进程退出或权限不足）'}
 
 

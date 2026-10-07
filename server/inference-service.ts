@@ -1,0 +1,16 @@
+import {createHash} from 'node:crypto';
+import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
+import {resolve,dirname} from 'node:path';
+import type {ProcessInference} from '../contracts/inference';
+import type {MonitorService} from './monitor-service';
+import type {AssistantService} from '../lib/assistant-service';
+export class InferenceService {
+ private file=resolve(process.env.SERVER_WATCH_DATA_DIR??'server-data','process-inferences.json');private records?:Record<string,ProcessInference>;private running=new Map<string,Promise<ProcessInference>>();private writes=Promise.resolve();private loading?:Promise<void>;
+ constructor(private monitor:Pick<MonitorService,'collect'|'thresholds'>,private assistant:Pick<AssistantService,'inferenceConfiguration'|'inferProcess'>){}
+ private async context(pid:number){const snapshot=structuredClone(await this.monitor.collect('normal',0)),thresholds=await this.monitor.thresholds(),provider=await this.assistant.inferenceConfiguration();const rows=(snapshot.processes??[]).filter(p=>p.pid===pid);if(!rows.length)throw Error('当前采样中没有该进程');const identity=rows.map(p=>({pid:p.pid,user:p.user,command:p.command,startedAt:p.startedAt,gpuId:p.gpuId})).sort((a,b)=>a.gpuId-b.gpuId);const key=createHash('sha256').update(JSON.stringify({server:snapshot.server,identity,model:provider.models[0],providerId:provider.id,baseUrl:provider.baseUrl,disableThinking:provider.disableThinking,unknownStart:rows.some(p=>!p.startedAt)?snapshot.id:undefined})).digest('hex');return {snapshot,thresholds,provider,key};}
+ private async load(){if(this.records)return;if(this.loading)return this.loading;this.loading=(async()=>{try{this.records=JSON.parse(await readFile(this.file,'utf8'));}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw Error('推测缓存读取失败');this.records={};}})();try{await this.loading;}finally{this.loading=undefined;}}
+ async cached(pid:number){const {key}=await this.context(pid);await this.load();const result=this.records![key];return result&&Date.parse(result.expiresAt)>Date.now()?{...result,cached:true}:undefined;}
+ async infer(pid:number,refresh:boolean,signal:AbortSignal){const context=await this.context(pid);await this.load();const saved=this.records![context.key];if(!refresh&&saved&&Date.parse(saved.expiresAt)>Date.now())return {...saved,cached:true};const pending=this.running.get(context.key);if(pending)return pending;if(this.running.size>=1)throw Error('已有进程正在推测，请稍后重试');
+  const operation=(async()=>{const result=await this.assistant.inferProcess(context.snapshot,context.thresholds,pid,context.provider,signal);this.records![context.key]=result;const entries=Object.entries(this.records!).filter(([,r])=>Date.parse(r.expiresAt)>Date.now()).sort((a,b)=>b[1].generatedAt.localeCompare(a[1].generatedAt)).slice(0,500);this.records=Object.fromEntries(entries);const save=this.writes.then(async()=>{await mkdir(dirname(this.file),{recursive:true,mode:0o700});const temp=this.file+'.tmp';await writeFile(temp,JSON.stringify(this.records),{mode:0o600});await rename(temp,this.file);});this.writes=save.catch(()=>{});await save;return result;})();this.running.set(context.key,operation);try{return await operation;}finally{this.running.delete(context.key);}
+ }
+}

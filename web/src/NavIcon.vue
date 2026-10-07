@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{name:string}>();
 const paths:Record<string,string[]>={
+ storage:['M3 7V4h6l3 3h9v13H3z','M3 10h18'],
  resources:['M4 4h16v12H4z','M8 20h8M12 16v4','M7 10h2l2-3 2 6 2-3h2'],
  processes:['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2','M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8','M22 21v-2a4 4 0 0 0-3-3.87','M16 3.13a4 4 0 0 1 0 7.75'],
  alerts:['M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9','M10 21h4'],

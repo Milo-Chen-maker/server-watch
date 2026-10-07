@@ -5,5 +5,5 @@ import type {Snapshot,Thresholds} from '../contracts/monitoring';
 export interface AgentRuntime {
  readonly engine:'pi';
  context():Promise<{snapshot:Snapshot;thresholds:Thresholds}>;
- run(input:{provider:Provider;apiKey?:string;model:string;question:string;history:Message[];snapshot:Snapshot;thresholds:Thresholds;signal:AbortSignal;delta:(text:string)=>void;tool:(record:ToolRecord)=>void;transcript:(messages:unknown[])=>void}):Promise<void>;
+ run(input:{provider:Provider;apiKey?:string;model:string;question:string;history:Message[];snapshot:Snapshot;thresholds:Thresholds;format?:'process-inference';signal:AbortSignal;delta:(text:string)=>void;tool:(record:ToolRecord)=>void;transcript:(messages:unknown[])=>void}):Promise<void>;
 }

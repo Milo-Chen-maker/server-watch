@@ -1,3 +1,5 @@
+import os
+import time
 import unittest
 from unittest.mock import patch
 import collector
@@ -24,6 +26,13 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(s['disks'][0]['available'], 7)
         self.assertEqual(len(s['processes']), 2)
         self.assertEqual(s['processes'][0]['taskSource'], 'unknown')
+
+    def test_process_identity_stays_stable_across_samples(self):
+        first = collector.process_info(os.getpid())
+        time.sleep(0.02)
+        second = collector.process_info(os.getpid())
+        self.assertIn('startedAt', first)
+        self.assertEqual(first['startedAt'], second['startedAt'])
 
     def test_unavailable_gpu_metrics_fail(self):
         with patch.object(collector, 'query', lambda _: '0, GPU-a, A800, 81920, 2048, N/A, 40, 100\n'):

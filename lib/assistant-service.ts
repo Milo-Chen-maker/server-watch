@@ -1,5 +1,7 @@
 import {z} from 'zod';
 import type {AgentRuntime} from './agent-runtime';
+import {inferenceOutput,type ProcessInference} from '../contracts/inference';
+import type {Snapshot,Thresholds} from '../contracts/monitoring';
 import {providerSchema,type Provider,type Message,type Session} from '../contracts/assistant';
 import {questionSchema,answerQuestion} from '../contracts/questions';
 export interface AssistantRepository{list(kind:'providers'|'sessions'):Promise<{id:string;data:string}[]>;put(kind:'providers'|'sessions',id:string,data:string):Promise<void>;remove(kind:'providers'|'sessions',id:string):Promise<void>;compareSession(id:string,expected:string,next:string):Promise<boolean>}
@@ -18,6 +20,13 @@ export class AssistantService{
  private async connection(id:string){const p=(await this.providers()).find(p=>p.id===id);if(!p||!p.enabled)throw Error('服务商不存在或已停用');return {p,headers:{'Content-Type':'application/json',...(p.encryptedKey?{Authorization:'Bearer '+await unseal(p.encryptedKey,this.encryptionKey)}:{})}};}
  private async upstream(p:StoredProvider,path:string,init:RequestInit){const res=await this.fetcher(this.url(p.baseUrl)+path,{...init,redirect:'error'});if(!res.ok){await res.body?.cancel();throw Error(`API 请求失败（HTTP ${res.status}），请检查地址、密钥和模型权限`);}return res;}
  async state(){return {engine:this.runtime?.engine??'direct',providers:(await this.providers()).map(publicProvider),sessions:await this.sessions()};}
+ async inferenceConfiguration(){const providers=(await this.providers()).filter(p=>p.enabled&&p.models.length);const selected=providers.find(p=>p.isDefault)??providers[0];if(!selected)throw Error('请先配置并启用模型');return publicProvider(selected);}
+ async inferProcess(snapshot:Snapshot,thresholds:Thresholds,pid:number,provider:Provider,signal:AbortSignal):Promise<ProcessInference>{
+  if(!this.runtime)throw Error('进程推测需要 Pi 后端');const rows=(snapshot.processes??[]).filter(p=>p.pid===pid);if(!rows.length)throw Error('当前采样中没有该进程');const {p,headers}=await this.connection(provider.id);const model=provider.models[0];if(!p.models.includes(model))throw Error('模型配置已变化，请重试');let text='',queried=false;
+  await this.runtime.run({provider:publicProvider(p),apiKey:'Authorization' in headers?headers.Authorization?.slice(7):undefined,model,snapshot,thresholds,history:[],format:'process-inference',question:`请调用 get_processes 查询 PID ${pid}，根据当前有限证据推测用途。只输出 JSON：{"hypothesis":"可能用途或无法判断","confidence":"low 或 medium","limitations":["缺少哪些信息"]}。命令参数值经过过滤，不能假装知道模型、脚本、文件或任务内容。`,signal:AbortSignal.any([signal,AbortSignal.timeout(60000)]),delta:value=>{text+=value;if(text.length>20000)throw Error('推测输出过长');},tool:record=>{if(record.name==='get_processes'&&record.status==='complete')queried=true;},transcript:()=>{}});
+  if(!queried)throw Error('模型未查询进程证据，请重新推测');
+  const result=inferenceOutput.parse(JSON.parse(text.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')));const at=new Date().toISOString();return {...result,pid,startedAt:rows[0].startedAt,source:'ai-inference',evidence:rows.map(row=>`用户 ${row.user} · GPU ${row.gpuId} · PID ${row.pid} · 命令 ${row.command}${row.startedAt?' · 启动 '+row.startedAt:''}`),snapshotId:snapshot.id,capturedAt:snapshot.capturedAt,generatedAt:at,expiresAt:new Date(Date.now()+86400000).toISOString(),model,providerId:provider.id};
+ }
  async action(raw:unknown,signal?:AbortSignal):Promise<unknown|Response>{
  const b=z.object({action:z.string()}).passthrough().parse(raw);
  if(b.action==='saveProvider'){

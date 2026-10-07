@@ -21,6 +21,8 @@
     "check:monitor": "node --import tsx server/check-monitor.ts",
     "check:collector": "python3 server/check_collector.py",
     "check:pi": "node --import tsx server/check-pi.ts",
+    "check:storage": "node --import tsx server/check-storage.ts",
+    "check:inference": "node --import tsx server/check-inference.ts",
     "check:tools": "node --import tsx server/check-monitor-tools.ts"
   },
   "dependencies": {

@@ -68,3 +68,7 @@ python3 server/check_collector.py
 四个新工具的部署已同步到 `/data/czy/server-watch/app`，正式服务仍停止。部署前备份 `/data/czy/server-watch/backups/monitor-tools-20261007-120604`，包含 `source.tar` 和文件清单 `manifest.json`。运行依赖未变化，只新增检查脚本和更新前端构建产物。
 
 26-server 实际验证：Pi → vLLM → get_gpu → 回答，工具查询约 3.3 秒，部署后的 API 往返约 4.6 秒；后续提问恢复工具上下文成功，伪造的客户端采样被服务端采样覆盖。后端回滚备份 `/data/czy/server-watch/backups/pi-20261007-005519`，GPU4 原启动配置备份 `/data/czy/server-watch/backups/gpu4-pi-20261007-004826`。
+
+## 进程用途推测
+
+已新增手动进程推测入口，复用 Pi SDK 和 `get_processes`，返回严格 JSON 与服务端证据，带 24 小时身份缓存。目录统计由独立后台扫描服务完成。接口和限制见 [STORAGE-INFERENCE.md](STORAGE-INFERENCE.md)。

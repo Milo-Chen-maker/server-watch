@@ -90,3 +90,5 @@ API Key 用 AES-GCM 加密存储，GET 不返回明文或密文；加密主密�
 Sites 托管版只允许 HTTPS 域名，拒绝直接 IP、localhost 和 `.local`；不会跟随重定向。它不能直接连接内网 vLLM。独立 Node 后端允许内网 HTTP 地址，可部署在与 vLLM 同一网络。模型请求与密钥仅在后端处理。当前接口只提供文本补全，没有 pi-agent 工具执行；以后在 `AssistantService.chat` 的补全段接入 pi-agent 事件适配器，保留前端 delta/done/error 协议和会话存储。
 
 本地验证：`node --import tsx server/check-assistant.ts`（内存存储与可控测试接口，不使用真实 API Key）。生产会话/密钥不包含在源代码或部署包中。Sites D1 迁移在 `drizzle/`。
+
+目录视图、后台空间统计和未知进程的手动 AI 推测已接入独立后端，详见 [存储与推测接口](docs/STORAGE-INFERENCE.md)。
